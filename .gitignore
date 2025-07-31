@@ -1,0 +1,115 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+
+# IDE-specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# Local configuration files
+config.local.yaml
+config.dev.yaml
+config.prod.yaml
+.env
+.env.local
+.env.development
+.env.production
+
+# Secrets and sensitive data
+secrets/
+*.key
+*.pem
+*.crt
+wallet.json
+keyring/
+.keyring/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts
+build/
+out/
+
+# Cache directories
+.cache/
+cache/
+
+# Backup files
+*.bak
+*.backup
+
+# Documentation build
+docs/_build/
+
+# Go module proxy cache
+GOPROXY
+
+# Air live reload tool
+.air.toml
+
+# Local development
+docker-compose.override.yml
+.local/
+
+# Deployment-specific
+deploy.yaml
+k8s-secrets.yaml
+
+# Performance profiling
+*.prof
+*.pprof
+
+# Test results
+test-results.xml
+coverage.xml
