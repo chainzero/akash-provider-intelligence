@@ -1,0 +1,25 @@
+server:
+  port: 8080
+  host: "0.0.0.0"
+  timeout: 30s
+
+akash:
+  grpc_endpoint: "34.135.123.180:9090"
+  rpc_endpoint: "https://rpc.akashnet.net:443"
+  chain_id: "akashnet-2"
+
+intelligence:
+  cache_ttl: "5m"
+  status_timeout: "5s"
+  max_concurrent: 10
+  health_check_interval: "2m"
+
+logging:
+  level: "info"
+  format: "json"
+
+selection_weights:
+  price: 0.4
+  reliability: 0.3
+  performance: 0.2
+  geographic: 0.1
