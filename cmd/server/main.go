@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -30,9 +31,9 @@ type Config struct {
 	} `yaml:"akash"`
 
 	Intelligence struct {
-		CacheTTL           time.Duration `yaml:"cache_ttl"`
-		StatusTimeout      time.Duration `yaml:"status_timeout"`
-		MaxConcurrent      int           `yaml:"max_concurrent"`
+		CacheTTL            time.Duration `yaml:"cache_ttl"`
+		StatusTimeout       time.Duration `yaml:"status_timeout"`
+		MaxConcurrent       int           `yaml:"max_concurrent"`
 		HealthCheckInterval time.Duration `yaml:"health_check_interval"`
 	} `yaml:"intelligence"`
 
@@ -76,9 +77,9 @@ func NewMCPServer(config *Config) (*MCPServer, error) {
 	// Initialize intelligence service
 	intelService, err := intelligence.NewService(&intelligence.Config{
 		AkashGRPCEndpoint:   config.Akash.GRPCEndpoint,
-		CacheTTL:           config.Intelligence.CacheTTL,
-		StatusTimeout:      config.Intelligence.StatusTimeout,
-		MaxConcurrent:      config.Intelligence.MaxConcurrent,
+		CacheTTL:            config.Intelligence.CacheTTL,
+		StatusTimeout:       config.Intelligence.StatusTimeout,
+		MaxConcurrent:       config.Intelligence.MaxConcurrent,
 		HealthCheckInterval: config.Intelligence.HealthCheckInterval,
 	})
 	if err != nil {
@@ -154,10 +155,10 @@ func (s *MCPServer) handleTools(w http.ResponseWriter, r *http.Request) {
 						"requirements": map[string]interface{}{
 							"type": "object",
 							"properties": map[string]interface{}{
-								"cpu":      map[string]string{"type": "string"},
-								"memory":   map[string]string{"type": "string"},
-								"gpu":      map[string]string{"type": "boolean"},
-								"budget":   map[string]string{"type": "number"},
+								"cpu":    map[string]string{"type": "string"},
+								"memory": map[string]string{"type": "string"},
+								"gpu":    map[string]string{"type": "boolean"},
+								"budget": map[string]string{"type": "number"},
 								"priority": map[string]interface{}{
 									"type": "string",
 									"enum": []string{"cost", "performance", "reliability"},
@@ -236,108 +237,129 @@ func (s *MCPServer) handleToolCall(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Tool implementations (placeholder for now)
+// Tool: Get Provider Intelligence
 func (s *MCPServer) handleGetProviderIntelligence(args map[string]interface{}) (interface{}, error) {
-	// TODO: Implement using intelligence service
-	return map[string]interface{}{
-		"message": "Provider intelligence will be implemented",
-		"args":    args,
-	}, nil
+	// Extract provider addresses from arguments
+	addresses, ok := args["provider_addresses"]
+	if !ok {
+		return nil, fmt.Errorf("provider_addresses argument is required")
+	}
+
+	addressList, ok := addresses.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("provider_addresses must be an array")
+	}
+
+	// Convert to string slice
+	var providerAddresses []string
+	for _, addr := range addressList {
+		if strAddr, ok := addr.(string); ok {
+			providerAddresses = append(providerAddresses, strAddr)
+		}
+	}
+
+	if len(providerAddresses) == 0 {
+		return nil, fmt.Errorf("no valid provider addresses provided")
+	}
+
+	// Use the intelligence service to get provider info
+	ctx := context.Background()
+	providers, err := s.intelligenceService.GetProviderIntelligence(ctx, providerAddresses)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get provider intelligence: %w", err)
+	}
+
+	return providers, nil
 }
 
+// Tool: Select Optimal Provider
 func (s *MCPServer) handleSelectOptimalProvider(args map[string]interface{}) (interface{}, error) {
-	// TODO: Implement provider selection logic
-	return map[string]interface{}{
-		"message": "Provider selection will be implemented",
-		"args":    args,
-	}, nil
+	// Extract requirements
+	requirements, ok := args["requirements"]
+	if !ok {
+		return nil, fmt.Errorf("requirements argument is required")
+	}
+
+	reqMap, ok := requirements.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("requirements must be an object")
+	}
+
+	// Extract provider bids
+	providerBids, ok := args["provider_bids"]
+	if !ok {
+		return nil, fmt.Errorf("provider_bids argument is required")
+	}
+
+	bidsList, ok := providerBids.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("provider_bids must be an array")
+	}
+
+	// Extract provider addresses from bids
+	var addresses []string
+	for _, bid := range bidsList {
+		if bidMap, ok := bid.(map[string]interface{}); ok {
+			if provider, exists := bidMap["provider"]; exists {
+				if providerStr, ok := provider.(string); ok {
+					addresses = append(addresses, providerStr)
+				}
+			}
+		}
+	}
+
+	if len(addresses) == 0 {
+		return nil, fmt.Errorf("no valid provider addresses found in bids")
+	}
+
+	// Build selection criteria
+	criteria := intelligence.SelectionCriteria{
+		Weights: intelligence.Weights{
+			Price:       s.config.SelectionWeights.Price,
+			Reliability: s.config.SelectionWeights.Reliability,
+			Performance: s.config.SelectionWeights.Performance,
+			Geographic:  s.config.SelectionWeights.Geographic,
+		},
+	}
+
+	// Set priority from requirements
+	if priority, ok := reqMap["priority"]; ok {
+		if priorityStr, ok := priority.(string); ok {
+			criteria.Priority = priorityStr
+		}
+	}
+
+	// Set budget from requirements
+	if budget, ok := reqMap["budget"]; ok {
+		if budgetFloat, ok := budget.(float64); ok {
+			criteria.Budget = budgetFloat
+		}
+	}
+
+	// Use intelligence service to select optimal provider
+	ctx := context.Background()
+	selection, err := s.intelligenceService.SelectOptimalProvider(ctx, addresses, criteria)
+	if err != nil {
+		return nil, fmt.Errorf("failed to select optimal provider: %w", err)
+	}
+
+	return selection, nil
 }
 
+// Tool: Get Market Trends - PLACEHOLDER FOR NOW
 func (s *MCPServer) handleGetMarketTrends(args map[string]interface{}) (interface{}, error) {
-	// TODO: Implement market trends analysis
+	timeframe := "24h"
+	if tf, ok := args["timeframe"]; ok {
+		if tfStr, ok := tf.(string); ok {
+			timeframe = tfStr
+		}
+	}
+
+	// For now, return basic market analysis
+	// This could be enhanced with historical data
 	return map[string]interface{}{
-		"message": "Market trends analysis will be implemented",
-		"args":    args,
+		"timeframe": timeframe,
+		"message":   "Market trends analysis - would integrate with historical provider data",
+		"status":    "placeholder_implementation",
 	}, nil
-}
-
-// Health check endpoint
-func (s *MCPServer) handleHealth(w http.ResponseWriter, r *http.Request) {
-	health := map[string]interface{}{
-		"status":    "healthy",
-		"timestamp": time.Now().UTC(),
-		"version":   "1.0.0",
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(health)
-}
-
-// Status endpoint for debugging
-func (s *MCPServer) handleStatus(w http.ResponseWriter, r *http.Request) {
-	status := map[string]interface{}{
-		"server": map[string]interface{}{
-			"uptime": time.Since(startTime),
-			"port":   s.config.Server.Port,
-			"host":   s.config.Server.Host,
-		},
-		"intelligence": map[string]interface{}{
-			"cache_size": s.intelligenceService.GetCacheStats(),
-		},
-		"config": s.config,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(status)
-}
-
-var startTime = time.Now()
-
-func main() {
-	// Command line flags
-	configPath := flag.String("config", "config.yaml", "Path to configuration file")
-	flag.Parse()
-
-	// Load configuration
-	config, err := loadConfig(*configPath)
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
-	}
-
-	// Create MCP server
-	server, err := NewMCPServer(config)
-	if err != nil {
-		log.Fatalf("Failed to create server: %v", err)
-	}
-
-	// Start HTTP server
-	addr := fmt.Sprintf("%s:%d", config.Server.Host, config.Server.Port)
-	httpServer := &http.Server{
-		Addr:         addr,
-		Handler:      server.router,
-		ReadTimeout:  config.Server.Timeout,
-		WriteTimeout: config.Server.Timeout,
-	}
-
-	// Graceful shutdown
-	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		<-sigChan
-
-		log.Println("🛑 Shutting down server...")
-		httpServer.Close()
-	}()
-
-	// Start server
-	log.Printf("🚀 Akash Provider Intelligence MCP Server starting on %s", addr)
-	log.Printf("📊 Health check: http://%s/health", addr)
-	log.Printf("🔧 Status: http://%s/status", addr)
-	log.Printf("🛠️  Tools: http://%s/tools", addr)
-
-	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("Server failed to start: %v", err)
-	}
-
-	log.Println("✅ Server stopped gracefully")
 }
