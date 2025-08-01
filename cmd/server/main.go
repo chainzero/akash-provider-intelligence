@@ -3,13 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/chainzero/akash-provider-intelligence/internal/intelligence"
@@ -363,3 +359,38 @@ func (s *MCPServer) handleGetMarketTrends(args map[string]interface{}) (interfac
 		"status":    "placeholder_implementation",
 	}, nil
 }
+
+// Add these missing handler methods to cmd/server/main.go
+
+// Health check endpoint
+func (s *MCPServer) handleHealth(w http.ResponseWriter, r *http.Request) {
+	health := map[string]interface{}{
+		"status":    "healthy",
+		"timestamp": time.Now().UTC(),
+		"version":   "1.0.0",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(health)
+}
+
+// Status endpoint for debugging
+func (s *MCPServer) handleStatus(w http.ResponseWriter, r *http.Request) {
+	status := map[string]interface{}{
+		"server": map[string]interface{}{
+			"uptime": time.Since(startTime),
+			"port":   s.config.Server.Port,
+			"host":   s.config.Server.Host,
+		},
+		"intelligence": map[string]interface{}{
+			"cache_size": s.intelligenceService.GetCacheStats(),
+		},
+		"config": s.config,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(status)
+}
+
+// Also add this global variable near the top of the file (after imports)
+var startTime = time.Now()
