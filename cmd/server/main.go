@@ -1,17 +1,21 @@
-package main
-
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/chainzero/akash-provider-intelligence/internal/intelligence"
 	"github.com/gorilla/mux"
 	"gopkg.in/yaml.v2"
 )
+
+var startTime = time.Now()
 
 type Config struct {
 	Server struct {
@@ -392,5 +396,51 @@ func (s *MCPServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(status)
 }
 
-// Also add this global variable near the top of the file (after imports)
-var startTime = time.Now()
+func main() {
+	// Command line flags
+	configPath := flag.String("config", "config.yaml", "Path to configuration file")
+	flag.Parse()
+
+	// Load configuration
+	config, err := loadConfig(*configPath)
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Create MCP server
+	server, err := NewMCPServer(config)
+	if err != nil {
+		log.Fatalf("Failed to create server: %v", err)
+	}
+
+	// Start HTTP server
+	addr := fmt.Sprintf("%s:%d", config.Server.Host, config.Server.Port)
+	httpServer := &http.Server{
+		Addr:         addr,
+		Handler:      server.router,
+		ReadTimeout:  config.Server.Timeout,
+		WriteTimeout: config.Server.Timeout,
+	}
+
+	// Graceful shutdown
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		<-sigChan
+
+		log.Println("🛑 Shutting down server...")
+		httpServer.Close()
+	}()
+
+	// Start server
+	log.Printf("🚀 Akash Provider Intelligence MCP Server starting on %s", addr)
+	log.Printf("📊 Health check: http://%s/health", addr)
+	log.Printf("🔧 Status: http://%s/status", addr)
+	log.Printf("🛠️  Tools: http://%s/tools", addr)
+
+	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("Server failed to start: %v", err)
+	}
+
+	log.Println("✅ Server stopped gracefully")
+}
