@@ -2,6 +2,7 @@ package akash
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -54,9 +55,14 @@ func NewClient(grpcEndpoint string) *Client {
 	return &Client{
 		grpcEndpoint: grpcEndpoint,
 		httpClient: &http.Client{
-			Timeout: 5 * time.Second, // Aggressive timeout for fast failures
+			Timeout: 5 * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true, // Skip SSL verification for provider status
+				},
+			},
 		},
-		semaphore: semaphore.NewWeighted(10), // Max 10 concurrent queries
+		semaphore: semaphore.NewWeighted(10),
 	}
 }
 
